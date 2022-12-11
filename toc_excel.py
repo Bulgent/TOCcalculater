@@ -4,7 +4,7 @@ from statistics import stdev, mean
 import numpy as np
 import pandas as pd
 import openpyxl
-
+from openpyxl.chart import Reference, ScatterChart, Series
 
 # 項目を含む配列数を検索
 def search_row_num(lists, name):
@@ -170,21 +170,39 @@ book = openpyxl.load_workbook(output_excel_path)
 sheet_TC_standard = book['TC_standard']
 # シートを取得
 sheet_TC_standard.cell(row=1,column=4).value = 'SLOPE'
-sheet_TC_standard.cell(row=1,column=5).value = '=SLOPE(A2:A4,B2:B4)'
+sheet_TC_standard.cell(row=1,column=5).value = '=SLOPE(B2:B4,A2:A4)'
 sheet_TC_standard.cell(row=2,column=4).value = 'INTERCEPT'
-sheet_TC_standard.cell(row=2,column=5).value = '=INTERCEPT(A2:A4,B2:B4)'
+sheet_TC_standard.cell(row=2,column=5).value = '=INTERCEPT(B2:B4,A2:A4)'
 sheet_TC_standard.cell(row=3,column=4).value = 'R2'
-sheet_TC_standard.cell(row=3,column=5).value = '=RSQ(A2:A4,B2:B4)'
+sheet_TC_standard.cell(row=3,column=5).value = '=RSQ(B2:B4,A2:A4)'
 
 # シートを取得
 sheet_IC_standard = book['IC_standard']
 # シートを取得
 sheet_IC_standard.cell(row=1,column=4).value = 'SLOPE'
-sheet_IC_standard.cell(row=1,column=5).value = '=SLOPE(A2:A4,B2:B4)'
+sheet_IC_standard.cell(row=1,column=5).value = '=SLOPE(B2:B4,A2:A4)'
 sheet_IC_standard.cell(row=2,column=4).value = 'INTERCEPT'
-sheet_IC_standard.cell(row=2,column=5).value = '=INTERCEPT(A2:A4,B2:B4)'
+sheet_IC_standard.cell(row=2,column=5).value = '=INTERCEPT(B2:B4,A2:A4)'
 sheet_IC_standard.cell(row=3,column=4).value = 'R2'
-sheet_IC_standard.cell(row=3,column=5).value = '=RSQ(A2:A4,B2:B4)'
+sheet_IC_standard.cell(row=3,column=5).value = '=RSQ(B2:B4,A2:A4)'
 
+sheet_data = book['data']
+sheet_data.cell(row=1,column=4).value = 'TC.Conc(ppm)'
+sheet_data.cell(row=1,column=5).value = 'IC.Conc(ppm)'
+sheet_data.cell(row=1,column=6).value = 'TOC.Conc(ppm)'
+for row_num in range(2,sheet_data.max_row+1):
+    sheet_data.cell(row=row_num,column=4).value = f'=B{row_num}*TC_standard!E1+TC_standard!E2'
+    sheet_data.cell(row=row_num,column=5).value = f'=C{row_num}*IC_standard!E1+IC_standard!E2'
+    sheet_data.cell(row=row_num,column=6).value = f'=D{row_num} - E{row_num}'
+
+# グラフ作成
+
+chart = ScatterChart()
+xvalues = Reference(sheet_IC_standard, min_col=1, min_row=1, max_row=4)
+values = Reference(sheet_IC_standard, min_col=2, min_row=2, max_row=4)
+series = Series(values, xvalues, title_from_data=True)
+chart.series.append(series)
+chart.series[0].marker.symbol = "dot"
+sheet_IC_standard.add_chart(chart,"A6")
 # 保存する
 book.save(output_excel_path)
