@@ -3,6 +3,8 @@ import glob
 from statistics import stdev, mean
 import numpy as np
 import pandas as pd
+import openpyxl
+
 
 # 項目を含む配列数を検索
 def search_row_num(lists, name):
@@ -65,32 +67,19 @@ def makeStandard(datum, vial_no_lst, std_conc_lst):
     ave_area_lst = []
     for lst in datum:
         vial_no = extract_VialNo(lst)
-        if vial_no == 1:
-            ave_area_lst.append(extract_AveArea(lst))
-        elif vial_no in vial_no_lst:
+        #if vial_no == 1:
+        #    ave_area_lst.append(extract_AveArea(lst))
+        if vial_no in vial_no_lst:
             ave_area_lst.append(extract_AveArea(lst))
     ave_area_lst.sort()
-    slope, intercept, r2 = makeLine(ave_area_lst, std_conc_lst)
+    #print()
     print(ave_area_lst)
-    return slope, intercept, r2
-
-# def makeStandard(datum, vial_no_lst, conc_lst):
-#     # TC: vial_no_lst = (1,2,3)
-#     # IC: vial_no_lst = (1,4,5)
-#     ave_area_lst = []
-#     std_conc_lst = []
-#     for lst in datum:
-#         vial_no = extract_VialNo(lst)
-#         if vial_no == 1:
-
-#             ave_area_lst.append(extract_AveArea(lst))
-#             std_conc_lst.append(0)
-#         elif vial_no in vial_no_lst:
-#             ave_area_lst.append(extract_AveArea(lst))
-#             std_conc_lst.append(extract_STDConc(lst))
-
-#     slope, intercept, r2 = makeLine(ave_area_lst, std_conc_lst)
-#     return slope, intercept, r2
+    df_ret = pd.DataFrame({"Ave.Area":ave_area_lst,"Conc.":std_conc_lst})
+    
+    slope, intercept, r2 = makeLine(ave_area_lst, std_conc_lst)
+    #df_ret = pd.DataFrame({"Ave.Area":ave_area_lst,"Conc.":std_conc_lst})
+    
+    return slope, intercept, r2, df_ret
 
 def getSeveralData(lists):
     vial_no = extract_VialNo(lists)
@@ -108,11 +97,6 @@ for result in results:
     with open(result, encoding='ANSI', newline='') as f:
         reader = [i for i in csv.reader(f) if len(i)>=6] #F列以降もある行を抽出
         readers += reader
-
-# csv合成
-# with open(path_folder+r"\merged.csv", "w", encoding='ANSI', newline='') as f:
-#     writer = csv.writer(f)
-#     writer.writerows(readers)
 
 # TC, IC毎にデータを纏める
 # [[["Date","Sample No",..],["1/12/2022  11:46:20", "1",..],["Injection #","Start ID"],..],[],...]
@@ -133,9 +117,9 @@ if "TC" in readers[temp_row+1]:
 if "IC" in readers[temp_row+1]:
     datum_IC.append(readers[temp_row:len(readers)])
 
-# 検量線作成
-TC_slope, TC_intercept, TC_r2 = makeStandard(datum_TC, (1,2,3), (0,10,50))
-IC_slope, IC_intercept, IC_r2 = makeStandard(datum_IC, (1,4,5), (0,10,20))
+# 検量線作成(ブランクは最後のバイアルを使用)
+TC_slope, TC_intercept, TC_r2, df_standard_TC = makeStandard(datum_TC, (len(datum_TC)+2,2,3), (0,10,50))
+IC_slope, IC_intercept, IC_r2, df_standard_IC = makeStandard(datum_IC, (len(datum_TC)+2,4,5), (0,10,20))
 
 # サンプルデータの整形
 # [{"VialNo":,"TC_Ave.Area":,"IC_Ave.Area":,"TC_Conc":,"IC_Conc":},]
@@ -154,7 +138,7 @@ for data_TC, data_IC in zip(datum_TC, datum_IC):
             temp_dict = {}
             temp_dict["VialNo"] = vial_no_tc
         temp_dict["TC_Ave.Area"] = ave_area_tc
-        temp_dict["TC_Conc"] = ave_area_tc * TC_slope + TC_intercept
+        #temp_dict["TC_Conc"] = ave_area_tc * TC_slope + TC_intercept
         sample_datum[vial_no_tc -6] = temp_dict
     if sample_name_ic == "4": # サンプルを抽出
         if sample_datum[vial_no_ic -6]:
@@ -163,11 +147,44 @@ for data_TC, data_IC in zip(datum_TC, datum_IC):
             temp_dict = {}
             temp_dict["VialNo"] = vial_no_ic
         temp_dict["IC_Ave.Area"] = ave_area_ic
-        temp_dict["IC_Conc"] = ave_area_ic * IC_slope + IC_intercept
+        #temp_dict["IC_Conc"] = ave_area_ic * IC_slope + IC_intercept
         sample_datum[vial_no_ic -6] = temp_dict
 
 df = pd.DataFrame(sample_datum)
-df['TOC'] = df['TC_Conc'] - df['IC_Conc']
+#df['TOC'] = df['TC_Conc'] - df['IC_Conc']
 
 print(df)
 df.to_csv(path_folder+r"/toc_result.csv", index=False)
+
+output_excel_path = path_folder+r"/toc_result.xlsx"
+with pd.ExcelWriter(output_excel_path) as writer:
+    df.to_excel(writer, sheet_name="data", index=False)
+    df_standard_TC.to_excel(writer, sheet_name="TC_standard",index=False)
+    df_standard_IC.to_excel(writer, sheet_name="IC_standard",index=False)
+
+# openpyxlで処理
+# ブックを取得
+book = openpyxl.load_workbook(output_excel_path)
+
+# シートを取得
+sheet_TC_standard = book['TC_standard']
+# シートを取得
+sheet_TC_standard.cell(row=1,column=4).value = 'SLOPE'
+sheet_TC_standard.cell(row=1,column=5).value = '=SLOPE(A2:A4,B2:B4)'
+sheet_TC_standard.cell(row=2,column=4).value = 'INTERCEPT'
+sheet_TC_standard.cell(row=2,column=5).value = '=INTERCEPT(A2:A4,B2:B4)'
+sheet_TC_standard.cell(row=3,column=4).value = 'R2'
+sheet_TC_standard.cell(row=3,column=5).value = '=RSQ(A2:A4,B2:B4)'
+
+# シートを取得
+sheet_IC_standard = book['IC_standard']
+# シートを取得
+sheet_IC_standard.cell(row=1,column=4).value = 'SLOPE'
+sheet_IC_standard.cell(row=1,column=5).value = '=SLOPE(A2:A4,B2:B4)'
+sheet_IC_standard.cell(row=2,column=4).value = 'INTERCEPT'
+sheet_IC_standard.cell(row=2,column=5).value = '=INTERCEPT(A2:A4,B2:B4)'
+sheet_IC_standard.cell(row=3,column=4).value = 'R2'
+sheet_IC_standard.cell(row=3,column=5).value = '=RSQ(A2:A4,B2:B4)'
+
+# 保存する
+book.save(output_excel_path)
