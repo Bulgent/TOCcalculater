@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import openpyxl
 from openpyxl.chart import Reference, ScatterChart, Series
+from openpyxl.chart.trendline import Trendline
 
 # 項目を含む配列数を検索
 def search_row_num(lists, name):
@@ -196,13 +197,28 @@ for row_num in range(2,sheet_data.max_row+1):
     sheet_data.cell(row=row_num,column=6).value = f'=D{row_num} - E{row_num}'
 
 # グラフ作成
-
 chart = ScatterChart()
-xvalues = Reference(sheet_IC_standard, min_col=1, min_row=1, max_row=4)
-values = Reference(sheet_IC_standard, min_col=2, min_row=2, max_row=4)
+xvalues = Reference(sheet_IC_standard, min_col=1, min_row=2, max_row=4)
+values = Reference(sheet_IC_standard, min_col=2, min_row=1, max_row=4)
 series = Series(values, xvalues, title_from_data=True)
+series.graphicalProperties.line.noFill=True
 chart.series.append(series)
 chart.series[0].marker.symbol = "dot"
+tl = Trendline(trendlineType='linear')
+chart.ser[-1].trendline = tl
 sheet_IC_standard.add_chart(chart,"A6")
+
+# グラフ作成
+chart = ScatterChart()
+xvalues = Reference(sheet_TC_standard, min_col=1, min_row=2, max_row=4)
+values = Reference(sheet_TC_standard, min_col=2, min_row=1, max_row=4)
+series = Series(values, xvalues, title_from_data=True)
+series.graphicalProperties.line.noFill=True
+chart.series.append(series)
+chart.series[0].marker.symbol = "dot"
+tl = Trendline(trendlineType='linear')
+chart.ser[-1].trendline = tl
+sheet_TC_standard.add_chart(chart,"A6")
+
 # 保存する
 book.save(output_excel_path)
