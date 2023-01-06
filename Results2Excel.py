@@ -15,14 +15,51 @@ from openpyxl.styles.borders import Border, Side
 
 # 項目を含む配列数を検索
 def search_row_num(lists, content_name):
+    """
+    Parameters
+    ----------
+    lists: list
+        1サンプルのデータ
+        [[],[],...]
+    content_name: string
+        調査したい項目
+
+    Returns
+    -------
+    ret: integer
+        項目の含まれているリストのインデックス
+
+    Examples
+    --------
+    >>> search_row_num([[],[],[],...], 'Ave. Area')
+    0
+    """
     ret = None
     for i, lst in enumerate(lists):
         if content_name in lst:
             ret = i
             break
     return ret
+
 # Ave.Area抽出
 def extract_AveArea(lists):
+    """
+    Parameters
+    ----------
+    lists: list
+        1サンプルのデータ
+        [[],[],...]
+
+    Returns
+    -------
+    ret: float
+        そのサンプルのエリア値
+
+    Examples
+    --------
+    >>> search_row_num([[],[],[],...])
+    10.01
+    """
     row_AveArea = search_row_num(lists, 'Ave. Area')
     index_AveArea = lists[row_AveArea].index('Ave. Area')
     return float(lists[row_AveArea+1][index_AveArea])
@@ -114,6 +151,8 @@ def checkSampleCondition(lists):
     standard: TC, ICの文字列が含まれているサンプル
     '''
     ret = {} # {VialNo : Sample Name}
+    isTC_STD = False
+    isIC_STD = False
     for num, lst in enumerate(lists):
         if "Date" in lst:
             index_sampleName = lst.index("Sample Name")
@@ -122,8 +161,10 @@ def checkSampleCondition(lists):
             vialNo     = int(lists[num+1][index_vialNo].replace(" ",""))
             if "TC" in sampleName:
                 label = "standard_TC"
+                isTC_STD = True
             elif "IC" in sampleName:
                 label = "standard_IC"
+                isIC_STD = True
             else:
                 label = "sample_" + sampleName[-1]
             
@@ -144,6 +185,9 @@ def checkSampleCondition(lists):
         elif sample_label == ret[k]:
             ret[k] = "sample"
 
+    #検量線データがあるか確認
+    if not isTC_STD and not isIC_STD:
+        raise Exception("検量線データが足りません !!")
     return ret
 
 def getVialNo(dict, sampleName):
@@ -215,6 +259,7 @@ for result in results:
         readers += reader
 
 sample_condition = checkSampleCondition(readers)
+
 
 # TC, IC毎にデータを纏める
 # {vialNo: [["Date","Sample No",..],["1/12/2022  11:46:20", "1",..],["Injection #","Start ID"],..],vialNo: [],...}
